@@ -1,17 +1,32 @@
-import json
 import time
-from json.encoder import INFINITY
 
 from selenium import webdriver
-from selenium.common import NoSuchElementException, StaleElementReferenceException
+from selenium.common import InvalidArgumentException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
-from setuptools.command.build import build
 
 
-class State:
-    CLICKING = 0
-    OTHER = 1
+def setup():
+    web_driver = webdriver.Chrome()
+
+    web_driver.get("https://orteil.dashnet.org/cookieclicker/")
+    time.sleep(1)
+
+    button = web_driver.find_element(By.CLASS_NAME, "fc-button-label")
+    button.click()
+
+    button = web_driver.find_element(By.ID, "langSelect-EN")
+    button.click()
+
+    time.sleep(5)
+    button = web_driver.find_element(By.ID, "bigCookie")
+    for _ in range(100):
+        button.click()
+
+    button = web_driver.find_element(By.ID, "product0")
+    button.click()
+
+    return web_driver
 
 
 def get_money_per_second_to_cost_ratio(element: WebElement) -> float:
@@ -19,26 +34,6 @@ def get_money_per_second_to_cost_ratio(element: WebElement) -> float:
     price = element.find_element(By.ID, "productPrice" + product_id)
     print(price)
     return 0.0
-
-
-driver = webdriver.Chrome()
-
-driver.get("https://orteil.dashnet.org/cookieclicker/")
-time.sleep(1)
-
-button = driver.find_element(By.CLASS_NAME, "fc-button-label")
-button.click()
-
-button = driver.find_element(By.ID, "langSelect-EN")
-button.click()
-
-time.sleep(5)
-button = driver.find_element(By.ID, "bigCookie")
-for _ in range(100):
-    button.click()
-
-button = driver.find_element(By.ID, "product0")
-button.click()
 
 
 def get_current_money():
@@ -54,10 +49,6 @@ def buy_building(building_number: int):
 class Building:
     def __init__(self, element: WebElement):
         self.element: WebElement = element
-
-    def price(self):
-        elem = self.element.find_element(By.CLASS_NAME, "price")
-        return int(elem.text)
 
 
 def get_buildings():
@@ -82,56 +73,27 @@ def get_best_building():
     return buildings[0]
 
 
-def get_upgrades():
-    return driver.execute_script('''
-    return Object.values(Game.UpgradesById).map(function(upgrade) {
-            return {
-                price: upgrade.basePrice
-            };
-        });
-    ''')
-
-
-def get_price_for_upgrade(upgrade_id: int) -> int:
-    return get_upgrades()[upgrade_id]
-
-
-def get_best_upgrade_price():
-    store: WebElement = driver.find_element(By.ID, "upgrades")
-    elements = store.find_elements(By.CLASS_NAME, "enabled")
-    if len(elements) > 0:
-        upgrade_id = elements[0].get_property("data-id")
-        price = get_price_for_upgrade(upgrade_id)
-        return price
-    return INFINITY
-
-
-def buy_best_upgrade():
-    store: WebElement = driver.find_element(By.ID, "upgrades")
-    elements = store.find_elements(By.CLASS_NAME, "enabled")
-
-    try:
-        elements[0].click()
-    except StaleElementReferenceException:
-        return
-    except IndexError:
-        return
+def get_available_upgrades():
+    return driver.find_element(By.ID, "upgrades").find_elements(By.CLASS_NAME, "enabled")
 
 
 def run_game_loop(big_cookie_button: WebElement):
     money = get_current_money()
+
     best_building = get_best_building()
+    if best_building and money >= best_building['price']:
+        buy_building(best_building['id'])
 
-    if best_building:
-        if money >= best_building['price']:
-            buy_best_upgrade()
-            buy_building(best_building['id'])
-
-    if money >= get_best_upgrade_price():
-        buy_best_upgrade()
+    try:
+        get_available_upgrades()[0].click()
+    except InvalidArgumentException:
+        pass
+    except IndexError:
+        pass
 
     big_cookie_button.click()
 
 
+driver = setup()
 while True:
     run_game_loop(driver.find_element(By.ID, "bigCookie"))
