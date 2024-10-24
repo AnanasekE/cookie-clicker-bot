@@ -1,7 +1,7 @@
 import time
 
 from selenium import webdriver
-from selenium.common import InvalidArgumentException
+from selenium.common import InvalidArgumentException, StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
@@ -10,6 +10,7 @@ def setup():
     web_driver = webdriver.Chrome()
 
     web_driver.get("https://orteil.dashnet.org/cookieclicker/")
+
     time.sleep(1)
 
     button = web_driver.find_element(By.CLASS_NAME, "fc-button-label")
@@ -19,6 +20,10 @@ def setup():
     button.click()
 
     time.sleep(5)
+
+    button = web_driver.find_element(By.CLASS_NAME, "cc_btn_accept_all")
+    button.click()
+
     button = web_driver.find_element(By.ID, "bigCookie")
     for _ in range(100):
         button.click()
@@ -96,4 +101,7 @@ def run_game_loop(big_cookie_button: WebElement):
 
 driver = setup()
 while True:
-    run_game_loop(driver.find_element(By.ID, "bigCookie"))
+    try:
+        run_game_loop(driver.find_element(By.ID, "bigCookie"))
+    except StaleElementReferenceException:
+        pass
